@@ -2,6 +2,11 @@ export const prerender = false;
 
 import { createServerClient } from '@supabase/ssr';
 
+// ⚡ Añadimos esto para que Vercel no devuelva 405 en GET
+export async function GET() {
+  return new Response("Auth endpoint OK", { status: 200 });
+}
+
 export async function POST({ request, cookies }) {
   const supabase = createServerClient(
     import.meta.env.PUBLIC_SUPABASE_URL,
@@ -17,9 +22,9 @@ export async function POST({ request, cookies }) {
 
   const { event, session } = await request.json();
 
-  if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+  if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
     await supabase.auth.setSession(session);
-  } else if (event === 'SIGNED_OUT') {
+  } else if (event === "SIGNED_OUT") {
     await supabase.auth.signOut();
   }
 
