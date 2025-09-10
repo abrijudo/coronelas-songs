@@ -1,0 +1,197 @@
+---
+---
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Crear cuenta</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family:'Inter',sans-serif;
+      background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);
+      min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px
+    }
+    .register-container{width:100%;max-width:380px;background:#fff;border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.1);overflow:hidden;transition:.4s cubic-bezier(.25,.8,.25,1)}
+    .register-container:hover{transform:translateY(-6px);box-shadow:0 16px 40px rgba(0,0,0,.15)}
+    .register-header{padding:32px 32px 20px;text-align:center;border-bottom:1px solid #f0f0f0}
+    .register-header h2{font-size:24px;font-weight:700;color:#1f2937;margin-bottom:6px}
+    .register-header p{font-size:13px;color:#6b7280}
+    .register-form{padding:32px}
+    .form-group{margin-bottom:20px}
+    .form-group label{display:block;font-size:12px;font-weight:500;color:#4b5563;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+    .form-group input{width:100%;padding:12px 16px;border:1px solid #d1d5db;border-radius:14px;font-size:15px;color:#1f2937;background:#f9fafb;transition:.3s}
+    .form-group input:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.15);background:#fff}
+    .btn-register{width:100%;padding:14px;background:linear-gradient(90deg,#3b82f6,#5b86e5);color:#fff;font-size:16px;font-weight:600;border:none;border-radius:14px;cursor:pointer;transition:.3s;box-shadow:0 4px 12px rgba(59,130,246,.2)}
+    .btn-register:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(59,130,246,.3)}
+    .btn-register:active{transform:translateY(0)}
+    .btn-register[disabled]{opacity:.7;cursor:not-allowed}
+    .register-footer{padding:20px 32px;background:#f9fafb;text-align:center;border-top:1px solid #f0f0f0}
+    .register-footer p{font-size:13px;color:#6b7280;line-height:1.6}
+    .register-footer a{color:#3b82f6;font-weight:500;text-decoration:none}
+    .register-footer a:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+
+  <div class="register-container">
+    <div class="register-header">
+      <h2>Crear cuenta</h2>
+      <p>Regístrate para empezar</p>
+    </div>
+
+    <form class="register-form" method="post" action="/registrar-sesion" autocomplete="off" novalidate>
+      <div class="form-group">
+        <label for="usuario">Nombre de usuario</label>
+        <input type="text" id="usuario" name="usuario" placeholder="usuario123" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label for="correo">Correo electrónico</label>
+        <input type="email" id="correo" name="correo" placeholder="tu@email.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="new-password" />
+      </div>
+      <div class="form-group">
+        <label for="confirmPassword">Confirmar contraseña</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" placeholder="••••••••" autocomplete="new-password" />
+      </div>
+      <button type="submit" class="btn-register">Crear cuenta</button>
+    </form>
+
+    <div class="register-footer">
+      <p>¿Ya tienes cuenta? <a href="/inicio-sesion">Inicia sesión</a></p>
+    </div>
+  </div>
+
+</body>
+</html>
+
+<script type="module">
+  import { supabase } from '/src/db/supabase.js';
+
+  // Limpia cualquier query si llegara (seguridad)
+  if (window.location.search) {
+    window.history.replaceState({}, '', '/registrar-sesion');
+  }
+
+  // Si estás logueado, vete al inicio
+  (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) window.location.replace('/');
+  })();
+
+  // Mantén cookies sincronizadas (signup puede crear sesión si el proyecto no requiere confirmación)
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, session })
+    });
+  });
+
+  const form = document.querySelector('.register-form');
+  const btn = form?.querySelector('.btn-register');
+
+  if (form instanceof HTMLFormElement) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const usuarioInput = document.getElementById('usuario');
+      const correoInput = document.getElementById('correo');
+      const passwordInput = document.getElementById('password');
+      const confirmInput  = document.getElementById('confirmPassword');
+
+      if (![usuarioInput, correoInput, passwordInput, confirmInput].every(el => el instanceof HTMLInputElement)) {
+        alert('Uno o más campos no se encontraron'); return;
+      }
+
+      const usuario = usuarioInput.value.trim();
+      const correo  = correoInput.value.trim();
+      const pass    = passwordInput.value.trim();
+      const confirm = confirmInput.value.trim();
+
+      if (!usuario || !correo || !pass || !confirm) {
+        alert('Por favor, completa todos los campos'); return;
+      }
+      if (pass !== confirm) {
+        alert('Las contraseñas no coinciden'); return;
+      }
+
+      btn?.setAttribute('disabled', 'true');
+
+      // 1) Registro en Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email: correo,
+        password: pass,
+        options: {
+          data: { name: usuario } // guarda también en user_metadata
+        }
+      });
+
+      if (error) {
+        alert('Error en el registro: ' + error.message);
+        btn?.removeAttribute('disabled');
+        return;
+      }
+
+      // Tenemos al menos data.user aunque el email requiera confirmación
+      const newUser = data.user;
+
+      // 2) Actualiza/crea el perfil (tabla profiles): role=user, display_name
+      try {
+        if (newUser?.id) {
+          await supabase
+            .from('profiles')
+            .upsert(
+              [{ id: newUser.id, role: 'user', display_name: usuario, updated_at: new Date().toISOString() }],
+              { onConflict: 'id' }
+            );
+        }
+      } catch (e) {
+        console.warn('No se pudo upsert en profiles:', e);
+      }
+
+      // 3) Crea/asegura fila en `pulsador` con activado=false, rol=user, jugando=false
+      try {
+        // Busca si ya existe ese usuario en la tabla pulsador
+        const { data: existing } = await supabase
+          .from('pulsador')
+          .select('id')
+          .eq('usuario', usuario)
+          .maybeSingle();
+
+        if (existing?.id) {
+          await supabase
+            .from('pulsador')
+            .update({ activado: false, rol: 'user', jugando: false })
+            .eq('id', existing.id);
+        } else {
+          await supabase
+            .from('pulsador')
+            .insert([{ usuario, activado: false, rol: 'user', jugando: false, created_at: new Date().toISOString() }]);
+        }
+      } catch (e) {
+        console.warn('No se pudo crear/actualizar fila en pulsador:', e);
+      }
+
+      // 4) Si el proyecto NO requiere confirmación de email, habrá sesión ya
+      if (data.session) {
+        await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'SIGNED_IN', session: data.session })
+        });
+        window.location.replace('/');
+        return;
+      }
+
+      // 5) Si requiere confirmación → sin sesión
+      alert('✅ Registro hecho. Revisa tu email para confirmar la cuenta.');
+      window.location.replace('/inicio-sesion');
+    });
+  }
+</script>

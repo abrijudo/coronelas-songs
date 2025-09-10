@@ -1,0 +1,337 @@
+---
+export const prerender = false;
+import Timer from "../components/timer.astro";
+---
+
+<!-- Cartel de fuera del juego -->
+<div id="pp-locked" class="pp-locked" hidden>
+  <div class="pp-locked__card">
+    <h2>🚫 No estás dentro del juego</h2>
+    <p>
+      Cuando el organizador te añada al juego,
+      esta página se activará automáticamente.
+    </p>
+  </div>
+</div>
+
+<!-- Contenido del participante (arranca oculto, se muestra si jugando=TRUE) -->
+<section id="pp-root" class="pp-wrap" hidden>
+  <!-- Título con el usuario logueado -->
+  <h2 class="pp-title">
+    Participante:
+    <span class="turn-title" id="pp-user-name">—</span>
+  </h2>
+
+  <div class="pp-grid">
+    <!-- Marcador -->
+    <div class="pp-card">
+      <h3 class="pp-h3">Marcador</h3>
+      <table class="pp-table" aria-label="Marcador de jugadores">
+        <thead>
+          <tr><th>Jugador</th><th>Puntos</th></tr>
+        </thead>
+        <tbody id="pp-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Tu turno + botón + reloj -->
+    <div class="pp-card pp-center">
+      <h3 class="pp-h3">Tu turno</h3>
+
+      <div class="turno" id="turno-box">
+        <span class="turno__label">Turno de:</span>
+        <span class="turno__name" data-turn-name>—</span>
+        <span class="turno__mine" hidden>¡¡¡TU TURNO!!!</span>
+      </div>
+
+      <button id="pp-buzz" class="pp-btn">¡Pulsar!</button>
+      <p id="pp-hint" class="pp-hint"></p>
+
+      <div class="timer-slot"><Timer /></div>
+    </div>
+  </div>
+</section>
+
+<style>
+/* ====== Cartel fuera del juego ====== */
+.pp-locked{max-width:900px;margin:2rem auto;padding:0 1rem}
+.pp-locked__card{
+  background:#fff;border:1px solid #e9eef5;border-radius:16px;
+  box-shadow:0 8px 22px rgba(0,0,0,.06);padding:24px;text-align:center
+}
+.pp-locked__card h2{margin:0 0 .5rem;font-weight:800;color:#991b1b}
+.pp-locked__card p{margin:0;color:#475569}
+
+/* ====== LAYOUT ====== */
+.pp-wrap { max-width: 950px; margin: 2rem auto; padding: 0 1rem; }
+.pp-title { text-align: center; font-size: 2rem; color: #1f2a44; margin-bottom: 2rem; font-weight: 800; }
+.pp-title .turn-title { margin-left: .5rem; color:#0f172a; letter-spacing:.4px; }
+
+.pp-grid { display: grid; gap: 1.5rem; grid-template-columns: 2fr 1fr; }
+@media (max-width: 860px) { .pp-grid { grid-template-columns: 1fr; } }
+
+.pp-card { background: #fff; border-radius: 16px; border: 1px solid #e9eef5; box-shadow: 0 6px 18px rgba(0,0,0,.06); padding: 1.5rem; }
+.pp-center { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+
+.pp-h3 { margin-bottom: 1rem; color:#30415d; font-size:1.2rem; font-weight:700; }
+
+/* ====== BOTONES / TEXTOS ====== */
+.pp-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  background:#070b4a; color:#fff; border:none; border-radius:12px;
+  padding:1rem 1.5rem; font-weight:700; cursor:pointer; min-width:200px;
+  box-shadow:0 6px 18px rgba(7,11,74,.25);
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.pp-btn:hover{ background:#0b1060; transform: translateY(-2px); }
+.pp-btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+.pp-hint{ margin-top:1rem; color:#64748b; font-size:.95rem; }
+.timer-slot{ margin-top:14px; }
+
+.turno{ margin:6px 0 10px; font-weight:800; color:#1f2a44; }
+.turno__label{ opacity:.7; margin-right:.35rem; }
+.turno__name{ letter-spacing:.5px; }
+
+/* ====== TABLA “CARD ROWS” + PROGRESO ====== */
+.pp-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 12px;
+  text-align: center;
+  background: transparent;
+  font-size: 1rem;
+}
+.pp-table thead th {
+  background: #f3f4f6; color: #374151; font-weight: 700;
+  text-transform: uppercase; font-size: .95rem; letter-spacing: .5px;
+  padding: 1rem; border-radius: 12px;
+}
+.pp-table tbody tr.pp-row { background: #fff; box-shadow: 0 6px 18px rgba(17, 24, 39, .06); }
+.pp-table tbody tr.pp-row td { border-bottom: none; padding: 14px 16px; vertical-align: middle; }
+.pp-table tbody tr.pp-row td:first-child { border-radius: 12px 0 0 12px; }
+.pp-table tbody tr.pp-row td:last-child  { border-radius: 0 12px 12px 0; }
+.pp-scorecell { min-width: 210px; }
+.pp-points { font-weight: 800; text-align: right; margin-bottom: 6px; }
+.pp-bar { height: 8px; background: #eef2f7; border-radius: 999px; overflow: hidden; }
+.pp-bar > span { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #1f2a44, #405aa8); transition: width .35s ease; }
+.pp-row.first .pp-bar > span { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+.pp-table .empty{ text-align:center; color:#6b7280; padding:1rem; font-style:italic; }
+.pp-row.me { box-shadow: 0 10px 24px rgba(7,11,74,.12); outline: 2px solid rgba(7,11,74,.08); }
+</style>
+
+<!-- ====== COMPUERTA: mostrar/ocultar según 'jugando' ====== -->
+<script type="module">
+  import { supabase } from "/src/db/supabase.js";
+
+  const $gate = document.getElementById("pp-locked");
+  const $root = document.getElementById("pp-root");
+  const $btn  = document.getElementById("pp-buzz"); // para deshabilitar si no juega
+  const $me   = document.getElementById("pp-user-name");
+
+  let myName = null;
+  let chGate = null;
+  let pollId = null;
+
+  function showGate() {
+    $root.hidden = true;
+    $gate.hidden = false;
+    if ($btn) $btn.disabled = true;
+  }
+  function showApp() {
+    $gate.hidden = true;
+    $root.hidden = false;
+    if ($btn) $btn.disabled = false;
+  }
+
+  async function resolveName() {
+    const { data: { user } } = await supabase.auth.getUser();
+    myName = user?.user_metadata?.name || user?.email?.split("@")[0] || null;
+    if ($me && myName) $me.textContent = myName;
+  }
+
+  async function checkGate() {
+    if (!myName) { await resolveName(); }
+    if (!myName) { showGate(); return; }
+
+    const { data, error } = await supabase
+      .from("pulsador")
+      .select("jugando")
+      .eq("usuario", myName)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("[gate] error:", error);
+      showGate();
+      return;
+    }
+    const jugando = Boolean(data?.jugando);
+    jugando ? showApp() : showGate();
+  }
+
+  function startPolling() {
+    if (!pollId) pollId = setInterval(checkGate, 5000);
+  }
+  function stopPolling() {
+    if (pollId) { clearInterval(pollId); pollId = null; }
+  }
+
+  async function subscribeGate() {
+    if (chGate) supabase.removeChannel(chGate);
+    await resolveName();
+    if (!myName) { showGate(); return; }
+
+    // Filtro por usuario para menos ruido
+    chGate = supabase
+      .channel("pp-gate")
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "pulsador", filter: `usuario=eq.${myName}` },
+        checkGate
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") stopPolling();
+        if (status === "TIMED_OUT" || status === "CHANNEL_ERROR" || status === "CLOSED") {
+          startPolling();
+          setTimeout(subscribeGate, 1200);
+        }
+      });
+  }
+
+  await checkGate();
+  await subscribeGate();
+  window.addEventListener("offline", startPolling);
+  window.addEventListener("online", () => { stopPolling(); subscribeGate(); });
+  window.addEventListener("beforeunload", () => { if (chGate) supabase.removeChannel(chGate); stopPolling(); });
+</script>
+
+<!-- ====== Marcador + botón Pulsar ====== -->
+<script type="module">
+  import { supabase } from "/src/db/supabase.js";
+
+  const $body = document.getElementById("pp-body");
+  const $btn  = document.getElementById("pp-buzz");
+  const $hint = document.getElementById("pp-hint");
+  const $me   = document.getElementById("pp-user-name");
+
+  // Título con el usuario logueado (si la compuerta ya lo puso, no pasa nada)
+  (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const nombre = user?.user_metadata?.name || user?.email?.split("@")[0] || "—";
+    if ($me && $me.textContent === "—") $me.textContent = nombre;
+  })();
+
+  const esc = (s) => (s ?? "").toString().replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+
+  function renderMarcador(list = []) {
+    if (!Array.isArray(list) || list.length === 0) {
+      $body.innerHTML = `<tr><td class="empty" colspan="2">Sin jugadores aún.</td></tr>`;
+      return;
+    }
+    const max = Math.max(0, ...list.map(r => Number(r.puntos) || 0));
+    $body.innerHTML = list.map((r, i) => {
+      const cls = i === 0 ? 'first' : i === 1 ? 'second' : i === 2 ? 'third' : '';
+      const puntos = Number.isFinite(r.puntos) ? r.puntos : 0;
+      const pct = max > 0 ? Math.round((puntos / max) * 100) : 0;
+      return `
+        <tr class="pp-row ${cls}">
+          <td><div class="pp-player"><span class="pp-name">${esc(r.jugador)?.toUpperCase() || '—'}</span></div></td>
+          <td class="pp-scorecell">
+            <div class="pp-points">${puntos}</div>
+            <div class="pp-bar"><span style="width:${pct}%"></span></div>
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function loadMarcador() {
+    const { data, error } = await supabase
+      .from("marcador")
+      .select("jugador, puntos")
+      .order("puntos", { ascending: false })
+      .order("jugador", { ascending: true });
+    if (error) return console.error(error);
+    renderMarcador(data || []);
+  }
+
+  await loadMarcador();
+  const chMarcador = supabase
+    .channel("marcador-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "marcador" }, loadMarcador)
+    .subscribe();
+
+  // Botón “¡Pulsar!”
+  $btn?.addEventListener("click", async () => {
+    $btn.disabled = true;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { $hint.textContent = "Inicia sesión para poder pulsar."; $btn.disabled = false; return; }
+
+    const nombre = user.user_metadata?.name || user.email?.split("@")[0] || "Jugador";
+    const { data: row, error } = await supabase
+      .from("pulsador")
+      .select("id, activado")
+      .eq("usuario", nombre)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error(error);
+      $hint.textContent = "No se pudo comprobar tu estado.";
+      $btn.disabled = false;
+      return;
+    }
+
+    try {
+      if (row) {
+        if (row.activado) { $hint.textContent = "Ya has pulsado."; }
+        else {
+          await supabase.from("pulsador").update({ activado: true }).eq("id", row.id);
+          $hint.textContent = "¡Hecho!";
+        }
+      } else {
+        await supabase.from("pulsador").insert({
+          usuario: nombre, activado: true, created_at: new Date().toISOString()
+        });
+        $hint.textContent = "¡Hecho!";
+      }
+    } finally {
+      $btn.disabled = false;
+    }
+  });
+
+  window.addEventListener("beforeunload", () => supabase.removeChannel?.(chMarcador));
+</script>
+
+<!-- Lógica compartida del temporizador -->
+<script type="module" src="/src/scripts/timer.js"></script>
+
+<!-- Conmutación “¡¡¡TU TURNO!!!” sin tocar timer.js -->
+<script type="module">
+  import { supabase } from "/src/db/supabase.js";
+
+  const TURN_KEY = "turn:current"; // Debe coincidir con timer.js
+  const norm = (s) => (s ?? "").toString().trim().toLowerCase();
+
+  const box   = document.getElementById("turno-box");
+  const myTag = box?.querySelector(".turno__mine");
+
+  let myName = null;
+
+  (async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    myName = user?.user_metadata?.name || user?.email?.split("@")[0] || null;
+    syncTurn();
+  })();
+
+  function syncTurn() {
+    const current = localStorage.getItem(TURN_KEY) || "";
+    const isMine = myName && current && norm(myName) === norm(current);
+    if (!box || !myTag) return;
+    box.classList.toggle("is-mine", !!isMine);
+    myTag.hidden = !isMine;
+  }
+
+  window.addEventListener("storage", (e) => {
+    if (e.key === TURN_KEY) syncTurn();
+  });
+
+  setTimeout(syncTurn, 100);
+</script>

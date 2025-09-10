@@ -1,0 +1,341 @@
+---
+/* Recopilatorio de canciones (Admin) con filtro por género) */
+---
+<div class="card">
+    <h2 class="text-center mb-4">Recopilatorio de canciones</h2>
+  
+    <div class="toolbar">
+      <div class="filters">
+        <label for="genreSelect">Género:</label>
+        <select id="genreSelect" class="select">
+          <option value="__ALL__">Todos</option>
+        </select>
+      </div>
+  
+      <div class="actions">
+        <button id="refreshBtn" class="btn">Refrescar</button>
+        <span id="status" class="status" aria-live="polite"></span>
+      </div>
+    </div>
+  
+    <div class="table-wrap">
+      <table class="songs-table" aria-describedby="status">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nombre</th>
+            <th>Género</th>
+            <th>Reproducir</th>
+            <th>Enlace</th>
+          </tr>
+        </thead>
+        <tbody id="songsBody"></tbody>
+      </table>
+      <div id="loading" class="loading" hidden>Cargando…</div>
+    </div>
+  </div>
+  <!-- PAGINADOR -->
+<div class="pager">
+  <button id="prevPage" class="btn-lite" type="button">Anterior</button>
+  <span id="pageInfo" class="page-info">Página 1 / 1</span>
+  <button id="nextPage" class="btn-lite" type="button">Siguiente</button>
+</div>
+  <style>
+    :root {
+      --border: #e5e7eb;
+      --txt: #374151;
+      --muted: #6b7280;
+      --bg: #ffffff;
+      --row-h: 48px;
+      --head-h: 48px;
+    }
+  
+    .toolbar{
+      display:flex;
+      gap:1rem;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom:.75rem;
+      flex-wrap: wrap;
+    }
+  
+    .filters{ display:flex; align-items:center; gap:.5rem; }
+    .filters label{ color:var(--muted); font-size:.95rem; }
+  
+    .select{
+      padding:.5rem .75rem;
+      border:1px solid var(--border);
+      border-radius:8px;
+      background:#fff;
+      min-width: 180px;
+    }
+  
+    .actions{ display:flex; align-items:center; gap:.75rem; }
+    .status { color:var(--muted); font-size:.9rem; }
+  
+    .table-wrap{
+      position:relative;
+      background:var(--bg);
+      border:1px solid var(--border);
+      border-radius:8px;
+      overflow:auto;
+      max-height: calc(var(--head-h) + (10 * var(--row-h))); /* 10 filas + cabecera */
+    }
+  
+    .songs-table{
+      width:100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+  
+    .songs-table th,
+    .songs-table td{
+      padding:10px 12px;
+      border-bottom:1px solid var(--border);
+      color:var(--txt);
+      vertical-align: middle;
+    }
+  
+    .songs-table thead th{
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 1;
+      height: var(--head-h);
+    }
+  
+    .songs-table thead th:nth-child(1){ width: 70px; }
+    .songs-table thead th:nth-child(3){ width: 140px; }
+    .songs-table thead th:nth-child(4){ width: 140px; }
+    .songs-table thead th:nth-child(5){ width: 110px; }
+  
+    .center { text-align:center; }
+  
+    .loading{
+      position:absolute; inset:auto 0 0 0;
+      padding:10px; text-align:center;
+      background:rgba(255,255,255,.85);
+      border-top:1px solid var(--border);
+      color:var(--muted);
+    }
+  
+    /* ===== Estilos GLOBALS para elementos creados por JS ===== */
+    :global(.switch-wrap){
+      display:inline-flex; align-items:center; gap:10px; position:relative; cursor:pointer;
+    }
+    :global(.switch){
+      width:42px; height:22px; background:#d1d5db; border-radius:999px; position:relative; transition:.2s;
+      display:inline-block; vertical-align:middle;
+    }
+    :global(.switch::after){
+      content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; background:#fff; border-radius:999px; transition:.2s;
+    }
+    :global(.switch-wrap input[type="checkbox"]){
+      position:absolute; opacity:0; width:0; height:0; pointer-events:none;
+    }
+    :global(.switch-wrap input[type="checkbox"]:checked + .switch){ background: var(--primary-color, #10b981); }
+    :global(.switch-wrap input[type="checkbox"]:checked + .switch::after){ transform: translateX(20px); }
+    :global(.songs-table a){ text-decoration: underline; }
+
+    .table-wrap{
+  position:relative;
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:8px;
+  overflow:auto;
+  max-height: calc(var(--head-h) + (10 * var(--row-h))); /* 10 filas + cabecera */
+}
+
+/* Paginador */
+.pager{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:12px;
+  padding:12px 8px 0;
+}
+.page-info{ color:var(--muted); font-size:.92rem; }
+.btn-lite{
+  padding:.55rem .9rem;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:#f3f4f6;
+  color:#1f2937;
+  font-weight:600;
+  cursor:pointer;
+}
+.btn-lite:hover{ background:#e5e7eb; }
+.btn-lite:disabled{ opacity:.55; cursor:not-allowed; }
+  </style>
+  
+  <script type="module">
+import { supabase } from "/src/db/supabase.js";
+
+const $body     = document.getElementById('songsBody');
+const $loading  = document.getElementById('loading');
+const $refresh  = document.getElementById('refreshBtn');
+const $status   = document.getElementById('status');
+const $genreSel = document.getElementById('genreSelect');
+
+/* NUEVO: paginación */
+const pageSize = 10;
+let page = 1;          // página actual (1-based)
+let pages = 1;         // total de páginas
+let total = 0;         // total de filas (según filtro)
+
+const $prev = document.getElementById('prevPage');
+const $next = document.getElementById('nextPage');
+const $pageInfo = document.getElementById('pageInfo');
+
+let channel = null;
+let currentGenre = '__ALL__';
+
+const setStatus = (msg) => { if ($status) $status.textContent = msg ?? ""; };
+
+/* ----------- Cargar géneros dinámicamente ----------- */
+async function loadGenres() {
+  const { data, error } = await supabase
+    .from('musica')
+    .select('tipo')
+    .not('tipo', 'is', null);
+
+  if (error) { console.error('Error cargando géneros:', error); return; }
+
+  const uniques = Array.from(new Set((data ?? [])
+    .map(r => (r.tipo ?? '').trim())
+    .filter(Boolean))).sort();
+
+  const prev = currentGenre;
+  $genreSel.innerHTML = `<option value="__ALL__">Todos</option>` + uniques
+    .map(t => `<option value="${t}">${t}</option>`).join('');
+
+  const hasPrev = prev === '__ALL__' || uniques.includes(prev);
+  $genreSel.value = hasPrev ? prev : '__ALL__';
+  currentGenre = $genreSel.value;
+}
+
+/* ----------- Cargar con paginación ----------- */
+function updatePager(){
+  pages = Math.max(1, Math.ceil(total / pageSize));
+  if (page > pages) page = pages;
+
+  const from = total ? (page - 1) * pageSize + 1 : 0;
+  const to   = Math.min(page * pageSize, total);
+  $pageInfo.textContent = `Página ${page} / ${pages} • ${from}-${to} de ${total}`;
+
+  $prev.disabled = page <= 1;
+  $next.disabled = page >= pages;
+
+  const label = currentGenre === '__ALL__' ? 'todos' : currentGenre;
+  setStatus(`${total} canciones (${label}) — mostrando ${from}-${to}`);
+}
+
+async function load() {
+  $loading.hidden = false;
+  setStatus("Cargando canciones…");
+
+  const from = (page - 1) * pageSize;
+  const to   = from + pageSize - 1;
+
+  let query = supabase
+    .from('musica')
+    .select('id, nombre, tipo, url, reproducir', { count: 'exact' })
+    .order('id', { ascending: true })
+    .range(from, to);
+
+  if (currentGenre !== '__ALL__') query = query.eq('tipo', currentGenre);
+
+  const { data, error, count } = await query;
+
+  $loading.hidden = true;
+
+  if (error) {
+    console.error(error);
+    $body.innerHTML = `<tr><td colspan="5">❌ Error: ${error.message}</td></tr>`;
+    setStatus("Error al cargar.");
+    return;
+  }
+
+  total = count ?? 0;
+  renderRows(data || []);
+  updatePager();
+}
+
+function renderRows(rows){
+  $body.innerHTML = rows.map(row => `
+    <tr data-id="${row.id}">
+      <td class="center">${row.id}</td>
+      <td title="${row.nombre ?? ''}">${row.nombre ?? ''}</td>
+      <td>${row.tipo ?? ''}</td>
+      <td class="center">
+        <label class="switch-wrap" aria-label="Marcar reproducción para ${row.nombre ?? 'canción'}">
+          <input type="checkbox" ${row.reproducir ? 'checked' : ''}>
+          <span class="switch"></span>
+        </label>
+      </td>
+      <td class="center">
+        ${row.url ? `<a href="${row.url}" target="_blank" rel="noopener noreferrer">Abrir</a>` : '-'}
+      </td>
+    </tr>
+  `).join('');
+
+  // Toggle listeners
+  $body.querySelectorAll('tr').forEach(tr => {
+    const input = tr.querySelector('input[type="checkbox"]');
+    input?.addEventListener('change', async (e) => {
+      const id = tr.getAttribute('data-id');
+      const nuevo = e.currentTarget.checked;
+
+      setStatus('Guardando…');
+      const { error } = await supabase
+        .from('musica')
+        .update({ reproducir: nuevo })
+        .eq('id', id);
+
+      if (error) {
+        console.error(error);
+        alert('No se pudo actualizar: ' + error.message);
+        e.currentTarget.checked = !nuevo; // revertir
+        setStatus('Error guardando cambios');
+      } else {
+        setStatus('Cambios guardados');
+      }
+    });
+  });
+}
+
+/* ----------- Realtime ----------- */
+function startRealtime(){
+  if(channel) supabase.removeChannel(channel);
+  channel = supabase
+    .channel('musica-realtime')
+    .on('postgres_changes', { event:'*', schema:'public', table:'musica' }, async () => {
+      await loadGenres();     // por si aparecen géneros nuevos
+      await load();           // se mantiene la página actual
+    })
+    .subscribe();
+}
+
+/* ----------- Eventos UI ----------- */
+$refresh?.addEventListener('click', load);
+
+$genreSel?.addEventListener('change', async (e) => {
+  currentGenre = e.target.value;
+  page = 1;                  // volver a la primera al cambiar filtro
+  await load();
+});
+
+$prev?.addEventListener('click', () => { if (page > 1)  { page--; load(); }});
+$next?.addEventListener('click', () => { if (page < pages) { page++; load(); }});
+
+/* ----------- Init ----------- */
+await loadGenres();
+await load();
+startRealtime();
+
+window.addEventListener('beforeunload', () => {
+  if (channel) supabase.removeChannel(channel);
+});
+
+  </script>
+  
