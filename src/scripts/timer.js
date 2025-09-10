@@ -1,5 +1,5 @@
 // /src/scripts/timer.js
-import { supabase } from "../../public/db/supabase.js";
+import { supabase } from "../db/supabase.js";
 
 /* ================== UI refs (soporta varias instancias) ================== */
 const $timers     = Array.from(document.querySelectorAll(".timer"));

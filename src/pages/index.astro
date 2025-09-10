@@ -9,7 +9,7 @@ import InsertarCanciones from '../components/insertar-canciones.astro';
 import Perfil from '../components/perfil.astro';
 import Participantes from '../components/participantes.astro';
 
-import { supabaseServer } from '../../public/db/supabaseServer.js';
+import { supabaseServer } from '../db/supabaseServer.js';
 
 const supabase = supabaseServer(Astro);
 const { data: { user } } = await supabase.auth.getUser();

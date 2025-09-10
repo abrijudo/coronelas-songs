@@ -1,4 +1,4 @@
-import { supabase } from "../../public/db/supabase.js";
+import { supabase } from "../db/supabase.js";
 import { startTimer } from "./timer.js";
 
 const $body = document.getElementById("pp-body");
