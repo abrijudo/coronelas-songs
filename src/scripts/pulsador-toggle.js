@@ -1,5 +1,5 @@
 // Cliente: toggles en tiempo real para la tabla `pulsador`
-import { supabase } from '../db/supabase.js';
+import { supabase } from '../../public/db/supabase.js';
 
 const $container = document.getElementById('playersContainer');
 const $loading = document.getElementById('loading');

@@ -1,4 +1,4 @@
-import { supabase } from "../db/supabase.js";
+import { supabase } from "../../public/db/supabase.js";
 import { startTimer, stopTimerUI } from "./timer.js";
 
 const $listOn   = document.getElementById("listOn");
